@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id             String        @id @default(uuid())
+  name           String
+  category       String
+  slackChannelId String?
+  figmaFileId    String?
+  market         String        @default("ARG")
+  active         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  trendClients   TrendClient[]
+  briefs         Brief[]
+}
+
+model RawSignal {
+  id          String   @id @default(uuid())
+  platform    String
+  externalId  String?
+  title       String
+  description String?  @db.Text
+  metrics     Json?
+  url         String?
+  market      String   @default("ARG")
+  processed   Boolean  @default(false)
+  fetchedAt   DateTime @default(now())
+  trend       Trend?
+
+  @@unique([platform, externalId])
+}
+
+model Trend {
+  id               String        @id @default(uuid())
+  name             String
+  platform         String
+  score            Float
+  growthSpeed      Float
+  activationWindow String
+  categoryFit      Float
+  description      String        @db.Text
+  manifestation    String        @db.Text
+  examples         String?       @db.Text
+  whyNow           String        @db.Text
+  recommendedFormat String?
+  status           String        @default("NEW")
+  market           String        @default("ARG")
+  rawSignalId      String?       @unique
+  rawSignal        RawSignal?    @relation(fields: [rawSignalId], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  trendClients     TrendClient[]
+  briefs           Brief[]
+}
+
+model TrendClient {
+  id       String @id @default(uuid())
+  trendId  String
+  clientId String
+  trend    Trend  @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([trendId, clientId])
+}
+
+model Brief {
+  id            String   @id @default(uuid())
+  trendId       String
+  clientId      String?
+  format        String
+  content       String   @db.Text
+  figmaFrameUrl String?
+  createdAt     DateTime @default(now())
+  trend         Trend    @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  client        Client?  @relation(fields: [clientId], references: [id])
+}
+
+model DigestLog {
+  id         String   @id @default(uuid())
+  sentAt     DateTime @default(now())
+  channel    String
+  trendCount Int
+  content    String   @db.Text
+}
