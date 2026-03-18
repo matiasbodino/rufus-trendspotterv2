@@ -1,49 +1,104 @@
 import { NextRequest, NextResponse } from "next/server"
-import { MOCK_TRENDS } from "@/lib/mock-data"
-import { TrendStatus, Platform, Market } from "@/lib/types"
+import { prisma } from "@/lib/prisma"
+import { TrendCard, ClientFit, Platform, Market, ActivationWindow, BriefFormat } from "@/lib/types"
 
-// In-memory store (replace with DB later)
-let trends = [...MOCK_TRENDS]
+export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const platform = searchParams.get("platform") as Platform | null
-  const status = searchParams.get("status") as TrendStatus | null
-  const market = searchParams.get("market") as Market | null
+  const platform = searchParams.get("platform")
+  const status = searchParams.get("status")
+  const market = searchParams.get("market")
   const clientId = searchParams.get("clientId")
 
-  let filtered = [...trends]
+  try {
+    const where: Record<string, unknown> = {}
+    if (platform) where.platform = platform
+    if (status) where.status = status
+    if (market) where.market = market
+    if (clientId) {
+      where.trendClients = { some: { clientId } }
+    }
 
-  if (platform) filtered = filtered.filter((t) => t.platform === platform)
-  if (status) filtered = filtered.filter((t) => t.status === status)
-  if (market) filtered = filtered.filter((t) => t.market === market)
-  if (clientId)
-    filtered = filtered.filter((t) =>
-      t.clients.some((c) => c.id === clientId)
+    const dbTrends = await prisma.trend.findMany({
+      where,
+      include: {
+        trendClients: {
+          include: { client: true },
+        },
+      },
+      orderBy: { score: "desc" },
+    })
+
+    const trends: TrendCard[] = dbTrends.map((t) => ({
+      id: t.id,
+      name: t.name,
+      platform: t.platform as Platform,
+      score: t.score,
+      growthSpeed: t.growthSpeed,
+      activationWindow: t.activationWindow as ActivationWindow,
+      categoryFit: t.categoryFit,
+      description: t.description,
+      manifestation: t.manifestation,
+      examples: t.examples || "",
+      whyNow: t.whyNow,
+      recommendedFormat: t.recommendedFormat as BriefFormat,
+      status: t.status as "NEW" | "EVALUATING" | "ACTIVATED" | "DISCARDED",
+      market: t.market as Market,
+      clients: t.trendClients.map(
+        (tc): ClientFit => ({
+          id: tc.client.id,
+          name: tc.client.name,
+          category: tc.client.category,
+        })
+      ),
+      createdAt: t.createdAt.toISOString(),
+    }))
+
+    return NextResponse.json({ trends, total: trends.length })
+  } catch (error) {
+    console.error("GET /api/trends error:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch trends", details: String(error) },
+      { status: 500 }
     )
-
-  filtered.sort((a, b) => b.score - a.score)
-
-  return NextResponse.json({ trends: filtered, total: filtered.length })
+  }
 }
 
 export async function PATCH(req: NextRequest) {
-  const body = await req.json()
-  const { id, status } = body
+  try {
+    const body = await req.json()
+    const { id, status } = body
 
-  if (!id || !status) {
+    if (!id || !status) {
+      return NextResponse.json(
+        { error: "id and status required" },
+        { status: 400 }
+      )
+    }
+
+    const updated = await prisma.trend.update({
+      where: { id },
+      data: { status },
+      include: {
+        trendClients: {
+          include: { client: true },
+        },
+      },
+    })
+
+    return NextResponse.json({
+      trend: {
+        id: updated.id,
+        name: updated.name,
+        status: updated.status,
+      },
+    })
+  } catch (error) {
+    console.error("PATCH /api/trends error:", error)
     return NextResponse.json(
-      { error: "id and status required" },
-      { status: 400 }
+      { error: "Failed to update trend" },
+      { status: 500 }
     )
   }
-
-  const idx = trends.findIndex((t) => t.id === id)
-  if (idx === -1) {
-    return NextResponse.json({ error: "Trend not found" }, { status: 404 })
-  }
-
-  trends[idx] = { ...trends[idx], status }
-
-  return NextResponse.json({ trend: trends[idx] })
 }

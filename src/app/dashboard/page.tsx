@@ -1,40 +1,78 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { MOCK_TRENDS, MOCK_CLIENTS } from "@/lib/mock-data"
-import { Platform, TrendStatus, Market, TrendCard as TrendCardType } from "@/lib/types"
+import { useState, useMemo, useEffect, useCallback } from "react"
+import { Platform, TrendStatus, Market, TrendCard as TrendCardType, Client } from "@/lib/types"
 import TrendFilters from "@/components/TrendFilters"
 import TrendCardComponent from "@/components/TrendCard"
 import TrendDetail from "@/components/TrendDetail"
-import { TrendingUp, Zap, Clock, BarChart3 } from "lucide-react"
+import { TrendingUp, Zap, Clock, BarChart3, Loader2 } from "lucide-react"
 
 export default function DashboardPage() {
-  const [trends, setTrends] = useState<TrendCardType[]>(MOCK_TRENDS)
+  const [trends, setTrends] = useState<TrendCardType[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedTrend, setSelectedTrend] = useState<string | null>(null)
   const [filterPlatform, setFilterPlatform] = useState<Platform | "all">("all")
   const [filterStatus, setFilterStatus] = useState<TrendStatus | "all">("all")
   const [filterMarket, setFilterMarket] = useState<Market | "all">("all")
   const [filterClient, setFilterClient] = useState<string | "all">("all")
 
+  const fetchTrends = useCallback(async () => {
+    try {
+      const params = new URLSearchParams()
+      if (filterPlatform !== "all") params.set("platform", filterPlatform)
+      if (filterStatus !== "all") params.set("status", filterStatus)
+      if (filterMarket !== "all") params.set("market", filterMarket)
+      if (filterClient !== "all") params.set("clientId", filterClient)
+
+      const res = await fetch(`/api/trends?${params.toString()}`)
+      const data = await res.json()
+      setTrends(data.trends || [])
+    } catch (err) {
+      console.error("Failed to fetch trends:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [filterPlatform, filterStatus, filterMarket, filterClient])
+
+  const fetchClients = useCallback(async () => {
+    try {
+      const res = await fetch("/api/clients")
+      const data = await res.json()
+      setClients(data.clients || [])
+    } catch {
+      setClients([])
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchClients()
+  }, [fetchClients])
+
+  useEffect(() => {
+    setLoading(true)
+    fetchTrends()
+  }, [fetchTrends])
+
   const filtered = useMemo(() => {
-    return trends
-      .filter((t) => filterPlatform === "all" || t.platform === filterPlatform)
-      .filter((t) => filterStatus === "all" || t.status === filterStatus)
-      .filter((t) => filterMarket === "all" || t.market === filterMarket)
-      .filter(
-        (t) =>
-          filterClient === "all" ||
-          t.clients.some((c) => c.id === filterClient)
-      )
-      .sort((a, b) => b.score - a.score)
-  }, [trends, filterPlatform, filterStatus, filterMarket, filterClient])
+    return [...trends].sort((a, b) => b.score - a.score)
+  }, [trends])
 
   const activeTrend = trends.find((t) => t.id === selectedTrend) || null
 
-  const handleStatusChange = (trendId: string, status: TrendStatus) => {
-    setTrends((prev) =>
-      prev.map((t) => (t.id === trendId ? { ...t, status } : t))
-    )
+  const handleStatusChange = async (trendId: string, status: TrendStatus) => {
+    try {
+      await fetch("/api/trends", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: trendId, status }),
+      })
+      setTrends((prev) =>
+        prev.map((t) => (t.id === trendId ? { ...t, status } : t))
+      )
+    } catch (err) {
+      console.error("Failed to update status:", err)
+    }
   }
 
   // Stats
@@ -96,35 +134,42 @@ export default function DashboardPage() {
           onStatusChange={setFilterStatus}
           onMarketChange={setFilterMarket}
           onClientChange={setFilterClient}
-          clients={MOCK_CLIENTS}
+          clients={clients}
         />
       </div>
 
       {/* Results count */}
       <div className="mb-4">
         <span className="text-sm text-gray-500">
-          {filtered.length} tendencia{filtered.length !== 1 ? "s" : ""}{" "}
-          {filterPlatform !== "all" || filterStatus !== "all" || filterClient !== "all"
-            ? "(filtradas)"
-            : ""}
+          {filtered.length} tendencia{filtered.length !== 1 ? "s" : ""}
         </span>
       </div>
 
-      {/* Trend grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filtered.map((trend) => (
-          <TrendCardComponent
-            key={trend.id}
-            trend={trend}
-            onSelect={setSelectedTrend}
-          />
-        ))}
-      </div>
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 text-rufus-purple animate-spin" />
+          <span className="ml-2 text-gray-500">Cargando tendencias...</span>
+        </div>
+      )}
 
-      {filtered.length === 0 && (
+      {/* Trend grid */}
+      {!loading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filtered.map((trend) => (
+            <TrendCardComponent
+              key={trend.id}
+              trend={trend}
+              onSelect={setSelectedTrend}
+            />
+          ))}
+        </div>
+      )}
+
+      {!loading && filtered.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-500">
-            No se encontraron tendencias con los filtros seleccionados.
+            No se encontraron tendencias. Los cron jobs van a ir agregando tendencias automáticamente.
           </p>
         </div>
       )}
