@@ -13,7 +13,7 @@ export async function fetchGoogleTrends(market: "ARG" | "MX" = "ARG"): Promise<G
   try {
     // Google Trends daily trends RSS feed (no API key needed)
     const res = await fetch(
-      `https://trends.google.com/trends/trendingsearches/daily/rss?geo=${geo}`,
+      `https://trends.google.com/trending/rss?geo=${geo}`,
       {
         headers: {
           "User-Agent": "RufusTrendspotter/1.0",
@@ -46,7 +46,9 @@ function parseGoogleTrendsXML(xml: string): GoogleTrendItem[] {
 
     const title = extractTag(itemXml, "title")
     const traffic = extractTag(itemXml, "ht:approx_traffic") || "0"
-    const description = extractTag(itemXml, "ht:news_item_title") || ""
+    const newsItemMatch = /<ht:news_item_title>([\s\S]*?)<\/ht:news_item_title>/
+    const newsMatch = newsItemMatch.exec(itemXml)
+    const description = newsMatch ? newsMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/, "$1").trim() : ""
     const link = extractTag(itemXml, "link") || ""
 
     if (title) {

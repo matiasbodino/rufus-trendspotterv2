@@ -1,7 +1,34 @@
 import Anthropic from "@anthropic-ai/sdk"
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || "",
+// Use lazy init to ensure .env is loaded first by Next.js
+let _anthropic: Anthropic | null = null
+
+function getAnthropicClient(): Anthropic {
+  if (!_anthropic) {
+    // Read directly from .env, bypassing any overrides
+    const fs = require("fs")
+    const path = require("path")
+    const envPath = path.resolve(process.cwd(), ".env")
+    let apiKey = process.env.ANTHROPIC_API_KEY || ""
+
+    try {
+      const envContent = fs.readFileSync(envPath, "utf-8")
+      const match = envContent.match(/^ANTHROPIC_API_KEY=(.+)$/m)
+      if (match) {
+        apiKey = match[1].trim()
+      }
+    } catch {}
+
+    _anthropic = new Anthropic({ apiKey })
+  }
+  return _anthropic
+}
+
+// Use getter to ensure lazy initialization
+const anthropic = new Proxy({} as Anthropic, {
+  get(_target, prop) {
+    return (getAnthropicClient() as any)[prop]
+  },
 })
 
 const RUFUS_CLIENTS = `Clientes activos de Rufus Social:
