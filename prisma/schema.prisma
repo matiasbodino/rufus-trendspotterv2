@@ -29,6 +29,19 @@ model Client {
   updatedAt      DateTime       @updatedAt
   trendClients   TrendClient[]
   briefs         Brief[]
+  files          ClientFile[]
+}
+
+model ClientFile {
+  id          String   @id @default(uuid())
+  clientId    String
+  fileName    String
+  fileType    String
+  fileSize    Int
+  storagePath String
+  extractedText String? @db.Text
+  uploadedAt  DateTime @default(now())
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
 model RawSignal {

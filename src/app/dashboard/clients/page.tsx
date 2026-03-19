@@ -1,7 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Building2, Plus, Save, X, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Building2, Plus, Save, X, ChevronDown, ChevronUp, Loader2, Upload, FileText, Trash2 } from "lucide-react"
+
+interface ClientFile {
+  id: string
+  fileName: string
+  fileType: string
+  fileSize: number
+  uploadedAt: string
+}
 
 interface ClientProfile {
   id?: string
@@ -37,6 +45,9 @@ export default function ClientsPage() {
   const [form, setForm] = useState<ClientProfile>(EMPTY_CLIENT)
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [clientFiles, setClientFiles] = useState<Record<string, ClientFile[]>>({})
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch("/api/clients")
@@ -100,6 +111,38 @@ export default function ClientsPage() {
         ? f.activePlatforms.filter((x) => x !== p)
         : [...f.activePlatforms, p],
     }))
+  }
+
+  const loadFiles = async (clientId: string) => {
+    const res = await fetch(`/api/clients/files?clientId=${clientId}`)
+    const data = await res.json()
+    setClientFiles((prev) => ({ ...prev, [clientId]: data.files || [] }))
+  }
+
+  const handleFileUpload = async (clientId: string, file: File) => {
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("clientId", clientId)
+      const res = await fetch("/api/clients/files", { method: "POST", body: formData })
+      if (res.ok) await loadFiles(clientId)
+    } catch (err) {
+      console.error("Upload error:", err)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDeleteFile = async (clientId: string, fileId: string) => {
+    await fetch(`/api/clients/files?fileId=${fileId}`, { method: "DELETE" })
+    await loadFiles(clientId)
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   const isEditing = creating || editing
@@ -286,7 +329,11 @@ export default function ClientsPage() {
             <div key={client.id} className="bg-rufus-card border border-rufus-border rounded-xl overflow-hidden">
               <div
                 className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-white/5 transition-colors"
-                onClick={() => setExpandedId(expandedId === client.id ? null : client.id)}
+                onClick={() => {
+                  const newId = expandedId === client.id ? null : client.id
+                  setExpandedId(newId)
+                  if (newId && !clientFiles[newId]) loadFiles(newId)
+                }}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-rufus-purple/20 flex items-center justify-center">
@@ -359,6 +406,58 @@ export default function ClientsPage() {
                       <p className="text-gray-300 mt-1 text-sm">{client.brandContext}</p>
                     </div>
                   )}
+                  {/* Files section */}
+                  <div className="mt-4 border-t border-rufus-border pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs text-gray-500 uppercase flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> Archivos de marca
+                      </span>
+                      <label className="cursor-pointer bg-rufus-purple/10 hover:bg-rufus-purple/20 text-rufus-purple-light px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors">
+                        {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                        Subir archivo
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.txt,.md,.doc,.docx,.pptx,.csv"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (f) handleFileUpload(client.id, f)
+                            e.target.value = ""
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-gray-600 mb-2">
+                      Brand guidelines, estrategia, assets, briefs — Claude los lee para sugerir fit con criterio
+                    </p>
+                    {(!clientFiles[client.id] || clientFiles[client.id].length === 0) ? (
+                      <div className="text-center py-4 bg-rufus-bg/50 rounded-lg border border-dashed border-rufus-border">
+                        <FileText className="w-5 h-5 text-gray-600 mx-auto mb-1" />
+                        <p className="text-xs text-gray-600">Sin archivos todavía</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {clientFiles[client.id].map((f) => (
+                          <div key={f.id} className="flex items-center justify-between bg-rufus-bg/50 rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-rufus-purple-light" />
+                              <div>
+                                <p className="text-xs text-gray-300">{f.fileName}</p>
+                                <p className="text-[10px] text-gray-600">{formatFileSize(f.fileSize)}</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteFile(client.id, f.id) }}
+                              className="text-gray-600 hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="mt-4 flex justify-end">
                     <button
                       onClick={(e) => { e.stopPropagation(); startEdit(client) }}
