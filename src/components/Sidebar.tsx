@@ -14,6 +14,7 @@ import {
   Menu,
   X,
 } from "lucide-react"
+import ThemeToggle from "./ThemeToggle"
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Feed", icon: LayoutDashboard },
@@ -79,16 +80,17 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      {!collapsed && (
-        <div className="p-4 border-t border-rufus-border">
-          <div className="flex items-center gap-2">
+      <div className="p-2 border-t border-rufus-border">
+        <ThemeToggle collapsed={collapsed} />
+        {!collapsed && (
+          <div className="flex items-center gap-2 px-3 py-2">
             <TrendingUp className="w-4 h-4 text-rufus-purple" />
             <span className="text-xs text-gray-500">
               Fase 1 — Argentina
             </span>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   )
 }

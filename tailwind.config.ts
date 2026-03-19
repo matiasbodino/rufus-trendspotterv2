@@ -10,9 +10,9 @@ const config: Config = {
     extend: {
       colors: {
         rufus: {
-          bg: "#0f0f23",
-          card: "#1a1a2e",
-          border: "#2a2a4a",
+          bg: "var(--bg-primary)",
+          card: "var(--bg-card)",
+          border: "var(--bg-border)",
           purple: "#7C3AED",
           "purple-light": "#a78bfa",
           "purple-dark": "#5b21b6",
