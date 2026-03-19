@@ -10,15 +10,31 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status")
   const market = searchParams.get("market")
   const clientId = searchParams.get("clientId")
+  const archived = searchParams.get("archived") === "true"
+  const sort = searchParams.get("sort") || "score"
 
   try {
     const where: Record<string, unknown> = {}
     if (platform) where.platform = platform
-    if (status) where.status = status
     if (market) where.market = market
     if (clientId) {
       where.trendClients = { some: { clientId } }
     }
+
+    if (archived) {
+      // Show only archived trends
+      where.status = "ARCHIVED"
+    } else if (status) {
+      where.status = status
+    } else {
+      // By default, exclude archived and discarded from feed
+      where.status = { notIn: ["ARCHIVED", "DISCARDED"] }
+    }
+
+    // Sort options
+    let orderBy: Record<string, string> = { score: "desc" }
+    if (sort === "newest") orderBy = { createdAt: "desc" }
+    if (sort === "urgent") orderBy = { activationWindow: "asc" }
 
     const dbTrends = await prisma.trend.findMany({
       where,
@@ -27,7 +43,7 @@ export async function GET(req: NextRequest) {
           include: { client: true },
         },
       },
-      orderBy: { score: "desc" },
+      orderBy,
     })
 
     const trends: TrendCard[] = dbTrends.map((t) => ({

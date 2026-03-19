@@ -12,6 +12,7 @@ import {
   Dna,
   Trophy,
   Building2,
+  Archive,
   Menu,
   X,
 } from "lucide-react"
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/dna", label: "Trend DNA", icon: Dna },
   { href: "/dashboard/clients", label: "Clientes", icon: Building2 },
   { href: "/dashboard/scorecard", label: "Scorecard", icon: Trophy },
+  { href: "/dashboard/archive", label: "Archivo", icon: Archive },
   { href: "/dashboard/metrics", label: "Métricas", icon: BarChart3 },
 ]
 
