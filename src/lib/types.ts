@@ -8,6 +8,8 @@ export type BriefFormat = "ESTATICA" | "UGC" | "AD" | "VIDEO_ANIMADO"
 
 export type ActivationWindow = "URGENTE" | "NORMAL" | "PUEDE_ESPERAR"
 
+export type Durability = "FLASH" | "DAYS" | "WEEKS"
+
 export interface TrendCard {
   id: string
   name: string
@@ -15,13 +17,20 @@ export interface TrendCard {
   score: number
   growthSpeed: number
   activationWindow: ActivationWindow
+  durability?: Durability
   categoryFit: number
   description: string
   manifestation: string
   examples: string | null
   whyNow: string
   recommendedFormat: BriefFormat | null
+  creativeAngle?: string | null
+  tags?: string[]
+  result?: string | null
+  resultBy?: string | null
   status: TrendStatus
+  statusChangedBy?: string | null
+  statusChangedAt?: string | null
   market: Market
   clients: ClientFit[]
   createdAt: string
@@ -72,6 +81,12 @@ export const WINDOW_CONFIG: Record<ActivationWindow, { label: string; color: str
   URGENTE: { label: "Urgente (24-48hs)", color: "text-red-400" },
   NORMAL: { label: "Normal (1 semana)", color: "text-yellow-400" },
   PUEDE_ESPERAR: { label: "Puede esperar", color: "text-gray-400" },
+}
+
+export const DURABILITY_CONFIG: Record<Durability, { label: string; emoji: string; color: string }> = {
+  FLASH: { label: "Flash (24-48hs)", emoji: "⚡", color: "text-red-400" },
+  DAYS: { label: "Días (3-7d)", emoji: "📅", color: "text-yellow-400" },
+  WEEKS: { label: "Semanas", emoji: "📈", color: "text-green-400" },
 }
 
 export const FORMAT_LABELS: Record<BriefFormat, string> = {

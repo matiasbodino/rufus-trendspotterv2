@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { fetchRedditTrending } from "@/lib/fetchers/reddit"
+import { fetchRedditHot } from "@/lib/fetchers/reddit-public"
 import { processSignal } from "@/lib/pipeline"
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret in production
   const authHeader = req.headers.get("authorization")
   if (
     process.env.CRON_SECRET &&
@@ -13,29 +12,27 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const posts = await fetchRedditTrending("ARG")
-    console.log(`Fetched ${posts.length} Reddit posts`)
+    const posts = await fetchRedditHot("ARG")
+    console.log(`Fetched ${posts.length} Reddit hot posts`)
 
     const results = []
-    for (const post of posts.slice(0, 5)) {
+    for (const post of posts.slice(0, 8)) {
       const trend = await processSignal({
         id: post.id,
         title: post.title,
-        description: post.selftext,
+        description: post.description,
         platform: "reddit",
         metrics: {
           score: post.score,
-          upvote_ratio: post.upvote_ratio,
-          num_comments: post.num_comments,
+          comments: post.comments,
+          subreddit: post.subreddit,
         },
         market: "ARG",
-        url: post.url,
+        url: post.permalink,
       })
 
       if (trend) results.push(trend)
-
-      // Rate limit Claude calls
-      await new Promise((r) => setTimeout(r, 1000))
+      await new Promise((r) => setTimeout(r, 1500))
     }
 
     return NextResponse.json({

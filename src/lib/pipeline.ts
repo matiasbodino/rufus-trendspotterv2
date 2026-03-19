@@ -1,6 +1,6 @@
 import { qualifySignal, generateTrendCard, QualifyResult } from "./claude"
 import { notifyTrendToClientChannels } from "./slack"
-import { TrendCard, Platform, Market, ActivationWindow, BriefFormat, ClientFit } from "./types"
+import { TrendCard, Platform, Market, ActivationWindow, Durability, BriefFormat, ClientFit } from "./types"
 import { prisma } from "./prisma"
 
 interface RawSignal {
@@ -49,6 +49,15 @@ export async function processSignal(signal: RawSignal): Promise<TrendCard | null
     return null
   }
 
+  // Check if already processed into a trend
+  const existingTrend = await prisma.trend.findUnique({
+    where: { rawSignalId: rawSignal.id },
+  })
+  if (existingTrend) {
+    console.log(`Signal "${signal.title}" already processed as trend "${existingTrend.name}"`)
+    return null
+  }
+
   // Step 1: Qualify with Claude
   let qualification: QualifyResult
   try {
@@ -69,13 +78,15 @@ export async function processSignal(signal: RawSignal): Promise<TrendCard | null
   }
 
   if (!qualification.califica) {
-    console.log(`Signal "${signal.title}" does not qualify (score: ${qualification.score})`)
+    console.log(`Signal "${signal.title}" does not qualify (score: ${qualification.score}, reason: ${qualification.razon})`)
     await prisma.rawSignal.update({
       where: { id: rawSignal.id },
       data: { processed: true },
     })
     return null
   }
+
+  console.log(`✅ Signal "${signal.title}" QUALIFIES (score: ${qualification.score})`)
 
   // Step 2: Generate trend card with Claude
   let trendCardData
@@ -93,13 +104,16 @@ export async function processSignal(signal: RawSignal): Promise<TrendCard | null
     return null
   }
 
-  // Step 3: Find matching clients from DB
-  const dbClients = await prisma.client.findMany({
-    where: {
-      name: { in: qualification.clientes_fit },
-      active: true,
-    },
-  })
+  // Step 3: Suggest potential client fits (optional, just tags)
+  const potentialClients = (qualification as any).clientes_potenciales || []
+  const dbClients = potentialClients.length > 0
+    ? await prisma.client.findMany({
+        where: {
+          name: { in: potentialClients },
+          active: true,
+        },
+      })
+    : []
 
   const clients: ClientFit[] = dbClients.map((c) => ({
     id: c.id,
@@ -117,20 +131,25 @@ export async function processSignal(signal: RawSignal): Promise<TrendCard | null
         score: qualification.score,
         growthSpeed: qualification.growthSpeed,
         activationWindow: qualification.ventana,
-        categoryFit: qualification.categoryFit,
+        durability: (qualification as any).durability || "DAYS",
+        categoryFit: (qualification as any).culturalRelevance || qualification.categoryFit || 5,
         description: trendCardData.description,
         manifestation: trendCardData.manifestation,
         examples: trendCardData.examples,
         whyNow: trendCardData.whyNow,
         recommendedFormat: trendCardData.recommendedFormat,
+        creativeAngle: trendCardData.creativeAngle || null,
+        tags: trendCardData.tags || [],
         status: "NEW",
         market: signal.market,
         rawSignalId: rawSignal.id,
-        trendClients: {
-          create: dbClients.map((c) => ({
-            clientId: c.id,
-          })),
-        },
+        trendClients: dbClients.length > 0
+          ? {
+              create: dbClients.map((c) => ({
+                clientId: c.id,
+              })),
+            }
+          : undefined,
       },
     })
 
@@ -152,19 +171,22 @@ export async function processSignal(signal: RawSignal): Promise<TrendCard | null
     score: dbTrend.score,
     growthSpeed: dbTrend.growthSpeed,
     activationWindow: dbTrend.activationWindow as ActivationWindow,
+    durability: (dbTrend as any).durability as Durability || "DAYS",
     categoryFit: dbTrend.categoryFit,
     description: dbTrend.description,
     manifestation: dbTrend.manifestation,
     examples: dbTrend.examples || "",
     whyNow: dbTrend.whyNow,
     recommendedFormat: dbTrend.recommendedFormat as BriefFormat,
+    creativeAngle: (dbTrend as any).creativeAngle || null,
+    tags: (dbTrend as any).tags || [],
     status: "NEW",
     market: dbTrend.market as Market,
     clients,
     createdAt: dbTrend.createdAt.toISOString(),
   }
 
-  // Step 5: Notify Slack channels
+  // Step 5: Notify Slack (if configured)
   if (clients.length > 0) {
     try {
       await notifyTrendToClientChannels(trend)

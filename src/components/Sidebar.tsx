@@ -8,12 +8,19 @@ import {
   LayoutDashboard,
   BarChart3,
   Zap,
+  Sparkles,
+  Dna,
+  Trophy,
   Menu,
   X,
 } from "lucide-react"
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Feed", icon: LayoutDashboard },
+  { href: "/dashboard/pack", label: "Creative Pack", icon: Sparkles },
+  { href: "/dashboard/sprint", label: "Sprint Mode", icon: Zap },
+  { href: "/dashboard/dna", label: "Trend DNA", icon: Dna },
+  { href: "/dashboard/scorecard", label: "Scorecard", icon: Trophy },
   { href: "/dashboard/metrics", label: "Métricas", icon: BarChart3 },
 ]
 

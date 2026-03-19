@@ -45,9 +45,11 @@ export interface QualifyResult {
   califica: boolean
   score: number
   growthSpeed: number
-  categoryFit: number
+  culturalRelevance: number
+  durability: "FLASH" | "DAYS" | "WEEKS"
   ventana: "URGENTE" | "NORMAL" | "PUEDE_ESPERAR"
-  clientes_fit: string[]
+  clientes_potenciales: string[]
+  categoria: string
   razon: string
 }
 
@@ -57,6 +59,8 @@ export interface TrendCardResult {
   manifestation: string
   examples: string
   whyNow: string
+  creativeAngle: string
+  tags: string[]
   recommendedFormat: "ESTATICA" | "UGC" | "AD" | "VIDEO_ANIMADO"
 }
 
@@ -70,17 +74,27 @@ export async function qualifySignal(signal: {
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 1024,
-    system: `Eres el motor de análisis de tendencias de Rufus Social, una agencia de performance creativo en LATAM. Tu trabajo es evaluar si una señal detectada en redes sociales califica como tendencia accionable para los clientes de la agencia.
+    system: `Eres el motor de detección de tendencias culturales de Rufus Social, una agencia de performance creativo en LATAM.
+
+Tu trabajo es evaluar si una señal detectada en redes o búsquedas ES UNA TENDENCIA CULTURAL RELEVANTE para el mercado argentino/latinoamericano. NO filtrás por industria ni por cliente — eso lo decide el equipo creativo después.
+
+Una tendencia califica si:
+- Es un tema, formato, momento cultural, meme, conversación o fenómeno que la gente está buscando, compartiendo o hablando AHORA
+- Tiene velocidad de crecimiento real (no es solo ruido)
+- Un equipo creativo de una agencia podría hacer algo con esto (contenido, real-time, pieza reactiva)
+
+Criterios de scoring:
+1. Velocidad de crecimiento (1-10): ¿cuánto creció en las últimas 24/48hs?
+2. Relevancia cultural (1-10): ¿qué tan relevante es para la conversación cultural del mercado? Deportes locales, cultura pop, memes, eventos, personas públicas, fenómenos sociales = alto. Noticias hiperlocales sin potencial creativo = bajo.
+3. Ventana de activación: URGENTE (<48hs, es ahora o nunca) / NORMAL (<1 semana) / PUEDE_ESPERAR
+4. Durabilidad: FLASH (24-48hs máximo, contenido reactivo rápido) / DAYS (3-7 días, se puede producir algo de calidad) / WEEKS (tendencia sostenida, vale la pena invertir en producción)
+
+El score final = growthSpeed * 0.5 + culturalRelevance * 0.3 + ventanaScore * 0.2
+Donde ventanaScore: URGENTE=10, NORMAL=6, PUEDE_ESPERAR=3
+
+IMPORTANTE: Sé generoso con la calificación. Si algo está trending y tiene potencial creativo, califica = true. El umbral es score >= 4. Solo rechazá cosas que son puro ruido sin ningún ángulo creativo posible.
 
 ${RUFUS_CLIENTS}
-
-Criterios de calificación:
-1. Velocidad de crecimiento (1-10): ¿cuánto creció en las últimas 24/48hs?
-2. Ventana de activación: URGENTE (<48hs) / NORMAL (<1 semana) / PUEDE_ESPERAR
-3. Fit de categoría con clientes activos (1-10): ¿qué tan relevante es para las industrias de los clientes?
-
-El score final es el promedio ponderado: growthSpeed * 0.4 + categoryFit * 0.4 + ventanaScore * 0.2
-Donde ventanaScore: URGENTE=10, NORMAL=6, PUEDE_ESPERAR=3
 
 Devuelve SOLO un JSON válido sin markdown, sin backticks, sin explicación adicional.`,
     messages: [
@@ -93,13 +107,21 @@ Descripción: ${signal.description}
 Métricas: ${JSON.stringify(signal.metrics)}
 
 Devuelve JSON con este formato exacto:
-{"califica": boolean, "score": number, "growthSpeed": number, "categoryFit": number, "ventana": "URGENTE"|"NORMAL"|"PUEDE_ESPERAR", "clientes_fit": ["NombreCliente1", "NombreCliente2"], "razon": "explicación breve"}`,
+{"califica": boolean, "score": number, "growthSpeed": number, "culturalRelevance": number, "durability": "FLASH"|"DAYS"|"WEEKS", "ventana": "URGENTE"|"NORMAL"|"PUEDE_ESPERAR", "clientes_potenciales": ["NombreCliente1"], "categoria": "deportes|entretenimiento|cultura pop|gastronomia|tecnologia|humor|musica|politica|lifestyle|otro", "razon": "explicación breve de por qué es o no es tendencia relevante"}`,
       },
     ],
   })
 
-  const text = response.content[0].type === "text" ? response.content[0].text : ""
-  return JSON.parse(text) as QualifyResult
+  let text = response.content[0].type === "text" ? response.content[0].text : ""
+  // Strip markdown backticks if Claude wraps the JSON
+  text = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim()
+  const result = JSON.parse(text)
+
+  // Map to expected interface (backward compat)
+  return {
+    ...result,
+    categoryFit: result.culturalRelevance || result.categoryFit || 5,
+  } as QualifyResult
 }
 
 export async function generateTrendCard(signal: {
@@ -113,11 +135,11 @@ export async function generateTrendCard(signal: {
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 2048,
-    system: `Eres el Creative Strategist de Rufus Social. Tu trabajo es convertir señales de tendencia en fichas creativas accionables.
+    system: `Eres el Creative Strategist de Rufus Social. Tu trabajo es convertir señales de tendencia en fichas creativas que el equipo pueda escanear rápido y decidir si activar.
 
 Tono: creativo, directo, accionable. No datos — insights. Escribí en español rioplatense pero profesional.
 
-${RUFUS_CLIENTS}`,
+La ficha NO es un brief — es un resumen rápido de QUÉ está pasando, CÓMO se manifiesta, y POR QUÉ importa ahora. El equipo creativo decide después si lo activa y para qué cliente.`,
     messages: [
       {
         role: "user",
@@ -130,15 +152,16 @@ Descripción: ${signal.description}
 Métricas: ${JSON.stringify(signal.metrics)}
 Score: ${signal.qualification.score}
 Ventana: ${signal.qualification.ventana}
-Clientes con fit: ${signal.qualification.clientes_fit.join(", ")}
+Categoría: ${(signal.qualification as any).categoria || "general"}
 
 Devuelve SOLO un JSON válido sin markdown ni backticks con este formato:
-{"name": "nombre creativo de la tendencia", "description": "qué es y por qué importa (2-3 oraciones)", "manifestation": "cómo se manifiesta: formato, audio, estética, narrativa (2-3 oraciones)", "examples": "ejemplos reales o referencias concretas", "whyNow": "por qué es relevante AHORA (contexto cultural del momento)", "recommendedFormat": "ESTATICA"|"UGC"|"AD"|"VIDEO_ANIMADO"}`,
+{"name": "nombre creativo y descriptivo de la tendencia", "description": "qué es y por qué importa (2-3 oraciones)", "manifestation": "cómo se manifiesta: formato, conversación, memes, contenido (2-3 oraciones)", "examples": "ejemplos reales o referencias concretas de cómo se está usando", "whyNow": "por qué es relevante AHORA — contexto cultural del momento", "creativeAngle": "UNA SOLA LÍNEA con un ángulo creativo concreto de cómo una marca podría activar esto (ej: 'Rappi podría hacer un Reel reaccionando en formato duet')", "tags": ["3-5 tags emergentes descriptivos como nostalgia, meme-argento, real-time, cultura-tv, food-moment, etc"], "recommendedFormat": "ESTATICA"|"UGC"|"AD"|"VIDEO_ANIMADO"}`,
       },
     ],
   })
 
-  const text = response.content[0].type === "text" ? response.content[0].text : ""
+  let text = response.content[0].type === "text" ? response.content[0].text : ""
+  text = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim()
   return JSON.parse(text) as TrendCardResult
 }
 
@@ -158,7 +181,9 @@ export async function generateBrief(params: {
 - Copy principal (headline)
 - Copy secundario (bajada)
 - Call to action
-- Formato y dimensiones recomendadas`,
+- Formato y dimensiones recomendadas
+
+IMPORTANTE: Al final del brief, agregá una sección "PROMPT PARA MOCKUP VISUAL" con un prompt detallado en inglés listo para usar en Midjourney/DALL-E que el diseñador pueda copiar y pegar para generar un mockup de referencia visual. El prompt debe describir la composición, estilo, colores, mood y elementos visuales de la pieza.`,
     UGC: `Generá un brief de UGC con:
 - Perfil del creator ideal (edad, estilo, tono)
 - Escenario y contexto

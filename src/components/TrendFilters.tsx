@@ -6,24 +6,18 @@ interface TrendFiltersProps {
   selectedPlatform: Platform | "all"
   selectedStatus: TrendStatus | "all"
   selectedMarket: Market | "all"
-  selectedClient: string | "all"
   onPlatformChange: (v: Platform | "all") => void
   onStatusChange: (v: TrendStatus | "all") => void
   onMarketChange: (v: Market | "all") => void
-  onClientChange: (v: string | "all") => void
-  clients: { id: string; name: string }[]
 }
 
 export default function TrendFilters({
   selectedPlatform,
   selectedStatus,
   selectedMarket,
-  selectedClient,
   onPlatformChange,
   onStatusChange,
   onMarketChange,
-  onClientChange,
-  clients,
 }: TrendFiltersProps) {
   const selectClass =
     "bg-rufus-card border border-rufus-border rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-rufus-purple"
@@ -65,18 +59,6 @@ export default function TrendFilters({
         <option value="all">Todos los mercados</option>
         <option value="ARG">Argentina</option>
         <option value="MX">México</option>
-      </select>
-
-      {/* Client */}
-      <select
-        value={selectedClient}
-        onChange={(e) => onClientChange(e.target.value)}
-        className={selectClass}
-      >
-        <option value="all">Todos los clientes</option>
-        {clients.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
       </select>
     </div>
   )

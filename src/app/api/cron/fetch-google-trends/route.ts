@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     console.log(`Fetched ${items.length} Google Trends items`)
 
     const results = []
-    for (const item of items.slice(0, 5)) {
+    for (const item of items.slice(0, 10)) {
       const trend = await processSignal({
         id: item.id,
         title: item.title,

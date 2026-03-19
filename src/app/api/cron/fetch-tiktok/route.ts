@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { fetchTikTokTrends } from "@/lib/fetchers/tiktok"
+import { fetchTikTokTrendingScraper } from "@/lib/fetchers/tiktok-scraper"
 import { processSignal } from "@/lib/pipeline"
 
 export async function GET(req: NextRequest) {
@@ -12,19 +12,19 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const items = await fetchTikTokTrends("ARG")
-    console.log(`Fetched ${items.length} TikTok trends`)
+    const items = await fetchTikTokTrendingScraper("ARG")
+    console.log(`Fetched ${items.length} TikTok trending items`)
 
     const results = []
-    for (const item of items.slice(0, 5)) {
+    for (const item of items.slice(0, 10)) {
       const trend = await processSignal({
         id: item.id,
         title: item.title,
         description: item.description,
         platform: "tiktok",
         metrics: {
-          videoCount: item.videoCount,
-          viewCount: item.viewCount,
+          hashtag: item.hashtag,
+          popularity: item.popularity,
         },
         market: "ARG",
         url: item.url,

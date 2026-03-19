@@ -1,4 +1,4 @@
-import { TrendCard, PLATFORM_LABELS, WINDOW_CONFIG, FORMAT_LABELS } from "./types"
+import { TrendCard, PLATFORM_LABELS, WINDOW_CONFIG, FORMAT_LABELS, DURABILITY_CONFIG, Durability } from "./types"
 
 const CLIENT_CHANNELS: Record<string, string> = {
   MercadoLibre: process.env.SLACK_CHANNEL_MERCADOLIBRE || "",
@@ -42,6 +42,7 @@ async function postToSlack(channel: string, blocks: unknown[]): Promise<boolean>
 export async function notifyTrendToClientChannels(trend: TrendCard): Promise<void> {
   const windowCfg = WINDOW_CONFIG[trend.activationWindow]
   const formatLabel = trend.recommendedFormat ? FORMAT_LABELS[trend.recommendedFormat] : "Por definir"
+  const durLabel = trend.durability ? DURABILITY_CONFIG[trend.durability as Durability]?.label || "" : ""
 
   const blocks = [
     {
@@ -57,7 +58,7 @@ export async function notifyTrendToClientChannels(trend: TrendCard): Promise<voi
         { type: "mrkdwn", text: `*Plataforma:* ${PLATFORM_LABELS[trend.platform]}` },
         { type: "mrkdwn", text: `*Score:* ${trend.score.toFixed(1)}/10` },
         { type: "mrkdwn", text: `*Ventana:* ${windowCfg.label}` },
-        { type: "mrkdwn", text: `*Formato sugerido:* ${formatLabel}` },
+        { type: "mrkdwn", text: `*Durabilidad:* ${durLabel}` },
       ],
     },
     {
@@ -73,13 +74,13 @@ export async function notifyTrendToClientChannels(trend: TrendCard): Promise<voi
         {
           type: "button",
           text: { type: "plain_text", text: "📋 Ver ficha" },
-          url: `${process.env.NEXTAUTH_URL || "http://localhost:3002"}/dashboard?trend=${trend.id}`,
+          url: `${process.env.NEXTAUTH_URL || "https://rufus-trendspotter.vercel.app"}/dashboard?trend=${trend.id}`,
           action_id: "view_trend",
         },
         {
           type: "button",
           text: { type: "plain_text", text: "⚡ Generar brief" },
-          url: `${process.env.NEXTAUTH_URL || "http://localhost:3002"}/dashboard?trend=${trend.id}&brief=true`,
+          url: `${process.env.NEXTAUTH_URL || "https://rufus-trendspotter.vercel.app"}/dashboard?trend=${trend.id}&brief=true`,
           action_id: "generate_brief",
           style: "primary",
         },
@@ -87,7 +88,6 @@ export async function notifyTrendToClientChannels(trend: TrendCard): Promise<voi
     },
   ]
 
-  // Send to each client channel that has fit
   for (const client of trend.clients) {
     const channel = CLIENT_CHANNELS[client.name]
     if (channel) {
@@ -96,51 +96,127 @@ export async function notifyTrendToClientChannels(trend: TrendCard): Promise<voi
   }
 }
 
+/**
+ * Daily digest with conversational tone — like a Creative Strategist briefing the team
+ */
 export async function sendDailyDigest(trends: TrendCard[]): Promise<boolean> {
   if (!GENERAL_CHANNEL) return false
 
   const today = new Date().toLocaleDateString("es-AR", {
+    weekday: "long",
     day: "numeric",
     month: "long",
-    year: "numeric",
   })
+
+  const urgentCount = trends.filter((t) => t.activationWindow === "URGENTE").length
+  const flashCount = trends.filter((t) => t.durability === "FLASH").length
+
+  // Conversational opener based on what's happening
+  let opener = `Buenos días equipo 👋 Acá va lo que está pasando hoy.`
+  if (urgentCount >= 2) {
+    opener = `🚨 Atención equipo — hay ${urgentCount} tendencias urgentes hoy. Ventana corta, hay que decidir rápido.`
+  } else if (trends.length === 0) {
+    opener = `Día tranquilo — no detectamos tendencias fuertes en las últimas 24hs. Buen momento para producción.`
+  } else if (flashCount >= 2) {
+    opener = `⚡ Día de reacción rápida — hay ${flashCount} tendencias flash que duran horas, no días.`
+  }
 
   const trendLines = trends
     .slice(0, 5)
     .map((t, i) => {
-      const clients = t.clients.map((c) => c.name).join(", ")
+      const durEmoji = t.durability === "FLASH" ? "⚡" : t.durability === "WEEKS" ? "📈" : "📅"
       const windowEmoji = t.activationWindow === "URGENTE" ? "🔴" : t.activationWindow === "NORMAL" ? "🟡" : "⚪"
-      return `${i + 1}. *${t.name}* — ${PLATFORM_LABELS[t.platform]} — Score: ${t.score.toFixed(1)} — Fit: ${clients} ${windowEmoji}`
+      return `${windowEmoji} *${t.name}*\n      ${PLATFORM_LABELS[t.platform]} · Score ${t.score.toFixed(1)} · ${durEmoji} ${t.durability || "DAYS"}\n      _${t.description.slice(0, 100)}..._`
     })
-    .join("\n")
+    .join("\n\n")
 
   const blocks = [
     {
       type: "header",
       text: {
         type: "plain_text",
-        text: `🔥 Trendspotter — ${today}`,
+        text: `☀️ Morning Brief — ${today}`,
       },
     },
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*Las ${Math.min(5, trends.length)} tendencias más relevantes de las últimas 24hs*\n\n${trendLines}`,
+        text: opener,
       },
+    },
+    { type: "divider" },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: trendLines || "_Sin tendencias relevantes hoy._",
+      },
+    },
+    { type: "divider" },
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `📊 ${trends.length} tendencias detectadas · ${urgentCount} urgentes · ${flashCount} flash`,
+        },
+      ],
     },
     {
       type: "actions",
       elements: [
         {
           type: "button",
-          text: { type: "plain_text", text: "→ Ver todas en Trendspotter" },
-          url: `${process.env.NEXTAUTH_URL || "http://localhost:3002"}/dashboard`,
+          text: { type: "plain_text", text: "🚀 Abrir Trendspotter" },
+          url: `${process.env.NEXTAUTH_URL || "https://rufus-trendspotter.vercel.app"}/dashboard`,
           action_id: "view_all",
+          style: "primary",
+        },
+        {
+          type: "button",
+          text: { type: "plain_text", text: "⚡ Sprint Mode" },
+          url: `${process.env.NEXTAUTH_URL || "https://rufus-trendspotter.vercel.app"}/dashboard/sprint`,
+          action_id: "sprint_mode",
         },
       ],
     },
   ]
 
   return postToSlack(GENERAL_CHANNEL, blocks)
+}
+
+/**
+ * Send a specific brief to a Slack channel
+ */
+export async function sendBriefToChannel(
+  channelId: string,
+  trendName: string,
+  briefContent: string,
+  format: string
+): Promise<boolean> {
+  const blocks = [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: `📋 Brief: ${trendName}`,
+      },
+    },
+    {
+      type: "context",
+      elements: [
+        { type: "mrkdwn", text: `*Formato:* ${format} · Generado desde Trendspotter` },
+      ],
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: briefContent.length > 2900 ? briefContent.slice(0, 2900) + "..." : briefContent,
+      },
+    },
+  ]
+
+  return postToSlack(channelId, blocks)
 }

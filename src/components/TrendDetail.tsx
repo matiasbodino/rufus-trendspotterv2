@@ -197,6 +197,31 @@ export default function TrendDetail({
             </div>
           </div>
 
+          {/* Creative Angle */}
+          {(trend as any).creativeAngle && (
+            <div className="bg-rufus-purple/10 border border-rufus-purple/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles className="w-4 h-4 text-rufus-purple-light" />
+                <span className="text-xs text-rufus-purple-light uppercase font-semibold">Ángulo creativo</span>
+              </div>
+              <p className="text-sm text-gray-300 italic">{(trend as any).creativeAngle}</p>
+            </div>
+          )}
+
+          {/* Tags */}
+          {(trend as any).tags && (trend as any).tags.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">Tags</h3>
+              <div className="flex flex-wrap gap-2">
+                {(trend as any).tags.map((tag: string) => (
+                  <span key={tag} className="text-xs bg-white/5 text-gray-400 px-2.5 py-1 rounded-lg">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Status changer */}
           <div>
             <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">
@@ -221,7 +246,26 @@ export default function TrendDetail({
                 )
               })}
             </div>
+            {(trend as any).statusChangedBy && (
+              <p className="text-[11px] text-gray-600 mt-2">
+                Cambiado por {(trend as any).statusChangedBy} · {(trend as any).statusChangedAt ? new Date((trend as any).statusChangedAt).toLocaleString("es-AR") : ""}
+              </p>
+            )}
           </div>
+
+          {/* Result (post-activation) */}
+          {trend.status === "ACTIVATED" && (
+            <div className="bg-rufus-card rounded-xl border border-rufus-border p-5">
+              <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
+                📊 Resultado de activación
+              </h3>
+              {(trend as any).result ? (
+                <p className="text-sm text-gray-400">{(trend as any).result}</p>
+              ) : (
+                <ResultInput trendId={trend.id} />
+              )}
+            </div>
+          )}
 
           {/* Brief Generator */}
           <div className="bg-rufus-card rounded-xl border border-rufus-border p-5">
@@ -325,6 +369,45 @@ function Section({ title, content }: { title: string; content: string }) {
         {title}
       </h3>
       <p className="text-gray-400 text-sm leading-relaxed">{content}</p>
+    </div>
+  )
+}
+
+function ResultInput({ trendId }: { trendId: string }) {
+  const [result, setResult] = useState("")
+  const [saved, setSaved] = useState(false)
+
+  const handleSave = async () => {
+    try {
+      await fetch("/api/trends", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: trendId, result }),
+      })
+      setSaved(true)
+    } catch {}
+  }
+
+  if (saved) {
+    return <p className="text-sm text-green-400">✅ Resultado guardado</p>
+  }
+
+  return (
+    <div className="space-y-2">
+      <textarea
+        value={result}
+        onChange={(e) => setResult(e.target.value)}
+        placeholder="Ej: Se hizo un Reel para Rappi, 2M views, 15K likes"
+        className="w-full bg-rufus-bg border border-rufus-border rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-rufus-purple resize-none"
+        rows={2}
+      />
+      <button
+        onClick={handleSave}
+        disabled={!result.trim()}
+        className="text-xs bg-rufus-purple hover:bg-rufus-purple-dark text-white px-3 py-1.5 rounded-lg disabled:opacity-40 transition-colors"
+      >
+        Guardar resultado
+      </button>
     </div>
   )
 }

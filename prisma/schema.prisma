@@ -45,13 +45,20 @@ model Trend {
   score            Float
   growthSpeed      Float
   activationWindow String
+  durability       String        @default("DAYS")
   categoryFit      Float
   description      String        @db.Text
   manifestation    String        @db.Text
   examples         String?       @db.Text
   whyNow           String        @db.Text
   recommendedFormat String?
+  creativeAngle    String?       @db.Text
+  tags             String[]      @default([])
+  result           String?       @db.Text
+  resultBy         String?
   status           String        @default("NEW")
+  statusChangedBy  String?
+  statusChangedAt  DateTime?
   market           String        @default("ARG")
   rawSignalId      String?       @unique
   rawSignal        RawSignal?    @relation(fields: [rawSignalId], references: [id])

@@ -5,9 +5,11 @@ import {
   PLATFORM_LABELS,
   STATUS_CONFIG,
   WINDOW_CONFIG,
+  DURABILITY_CONFIG,
   FORMAT_LABELS,
+  Durability,
 } from "@/lib/types"
-import { Clock, TrendingUp, Users, ExternalLink } from "lucide-react"
+import { Clock, TrendingUp, Zap, ExternalLink, Timer } from "lucide-react"
 
 interface TrendCardProps {
   trend: TrendCardType
@@ -41,7 +43,8 @@ function platformIcon(platform: string): string {
 export default function TrendCardComponent({ trend, onSelect }: TrendCardProps) {
   const statusCfg = STATUS_CONFIG[trend.status]
   const windowCfg = WINDOW_CONFIG[trend.activationWindow]
-  const timeSince = getTimeSince(trend.createdAt)
+  const durCfg = trend.durability ? DURABILITY_CONFIG[trend.durability as Durability] : null
+  const leadTime = getLeadTime(trend.createdAt)
 
   return (
     <div
@@ -83,10 +86,41 @@ export default function TrendCardComponent({ trend, onSelect }: TrendCardProps) 
       </div>
 
       {/* Description */}
-      <p className="text-sm text-gray-400 mb-4 line-clamp-2">{trend.description}</p>
+      <p className="text-sm text-gray-400 mb-2 line-clamp-2">{trend.description}</p>
+
+      {/* Creative Angle */}
+      {trend.creativeAngle && (
+        <p className="text-xs text-rufus-purple-light italic mb-3 line-clamp-1">
+          💡 {trend.creativeAngle}
+        </p>
+      )}
+
+      {/* Tags */}
+      {trend.tags && trend.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-3">
+          {trend.tags.slice(0, 4).map((tag) => (
+            <span key={tag} className="text-[10px] bg-white/5 text-gray-500 px-1.5 py-0.5 rounded">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Lead Time + Durability badges */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="inline-flex items-center gap-1 text-[11px] bg-rufus-purple/15 text-rufus-purple-light px-2 py-1 rounded-md">
+          <Timer className="w-3 h-3" />
+          Detectada {leadTime}
+        </span>
+        {durCfg && (
+          <span className={`inline-flex items-center gap-1 text-[11px] bg-white/5 px-2 py-1 rounded-md ${durCfg.color}`}>
+            {durCfg.emoji} {durCfg.label}
+          </span>
+        )}
+      </div>
 
       {/* Metrics row */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-4">
         <div>
           <div className="flex items-center gap-1 mb-1">
             <TrendingUp className="w-3 h-3 text-gray-500" />
@@ -106,19 +140,9 @@ export default function TrendCardComponent({ trend, onSelect }: TrendCardProps) 
             {windowCfg.label}
           </span>
         </div>
-        <div>
-          <div className="flex items-center gap-1 mb-1">
-            <Users className="w-3 h-3 text-gray-500" />
-            <span className="text-[10px] text-gray-500 uppercase">Fit</span>
-          </div>
-          <ScoreBar value={trend.categoryFit} />
-          <span className="text-xs text-gray-400 mt-0.5 block">
-            {trend.categoryFit.toFixed(1)}/10
-          </span>
-        </div>
       </div>
 
-      {/* Client fit tags */}
+      {/* Format + tags */}
       <div className="flex flex-wrap items-center gap-1.5">
         {trend.clients.map((c) => (
           <span
@@ -137,13 +161,22 @@ export default function TrendCardComponent({ trend, onSelect }: TrendCardProps) 
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-rufus-border">
-        <span className="text-[11px] text-gray-600">{timeSince}</span>
+        <span className="text-[11px] text-gray-600">{getTimeSince(trend.createdAt)}</span>
         <span className="text-[11px] text-rufus-purple-light opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
           Ver ficha <ExternalLink className="w-3 h-3" />
         </span>
       </div>
     </div>
   )
+}
+
+function getLeadTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  if (hours < 1) return "hace menos de 1h"
+  if (hours < 24) return `hace ${hours}h`
+  const days = Math.floor(hours / 24)
+  return `hace ${days}d`
 }
 
 function getTimeSince(dateStr: string): string {

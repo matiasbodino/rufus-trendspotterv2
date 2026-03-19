@@ -5,6 +5,7 @@
     { "path": "/api/cron/fetch-google-trends", "schedule": "0 */4 * * *" },
     { "path": "/api/cron/fetch-reddit", "schedule": "0 */4 * * *" },
     { "path": "/api/cron/fetch-pinterest", "schedule": "0 0 * * *" },
-    { "path": "/api/cron/digest-daily", "schedule": "0 11 * * *" }
+    { "path": "/api/cron/digest-daily", "schedule": "0 11 * * *" },
+    { "path": "/api/cron/creative-pack", "schedule": "30 11 * * *" }
   ]
 }

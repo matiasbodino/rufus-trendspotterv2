@@ -37,13 +37,20 @@ export async function GET(req: NextRequest) {
       score: t.score,
       growthSpeed: t.growthSpeed,
       activationWindow: t.activationWindow as ActivationWindow,
+      durability: (t as any).durability || "DAYS",
       categoryFit: t.categoryFit,
       description: t.description,
       manifestation: t.manifestation,
       examples: t.examples || "",
       whyNow: t.whyNow,
       recommendedFormat: t.recommendedFormat as BriefFormat,
+      creativeAngle: (t as any).creativeAngle || null,
+      tags: (t as any).tags || [],
+      result: (t as any).result || null,
+      resultBy: (t as any).resultBy || null,
       status: t.status as "NEW" | "EVALUATING" | "ACTIVATED" | "DISCARDED",
+      statusChangedBy: (t as any).statusChangedBy || null,
+      statusChangedAt: (t as any).statusChangedAt?.toISOString() || null,
       market: t.market as Market,
       clients: t.trendClients.map(
         (tc): ClientFit => ({
@@ -68,18 +75,27 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json()
-    const { id, status } = body
+    const { id, status, result, resultBy, changedBy } = body
 
-    if (!id || !status) {
+    if (!id) {
       return NextResponse.json(
-        { error: "id and status required" },
+        { error: "id required" },
         { status: 400 }
       )
     }
 
+    const data: Record<string, unknown> = {}
+    if (status) {
+      data.status = status
+      data.statusChangedBy = changedBy || null
+      data.statusChangedAt = new Date()
+    }
+    if (result !== undefined) data.result = result
+    if (resultBy) data.resultBy = resultBy
+
     const updated = await prisma.trend.update({
       where: { id },
-      data: { status },
+      data,
       include: {
         trendClients: {
           include: { client: true },
