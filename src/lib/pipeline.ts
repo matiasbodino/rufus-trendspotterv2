@@ -132,7 +132,7 @@ export async function processSignal(signal: RawSignal): Promise<TrendCard | null
         growthSpeed: qualification.growthSpeed,
         activationWindow: qualification.ventana,
         durability: (qualification as any).durability || "DAYS",
-        categoryFit: (qualification as any).culturalRelevance || qualification.categoryFit || 5,
+        categoryFit: (qualification as any).culturalRelevance || (qualification as any).categoryFit || 5,
         description: trendCardData.description,
         manifestation: trendCardData.manifestation,
         examples: trendCardData.examples,

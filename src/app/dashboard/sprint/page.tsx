@@ -64,7 +64,8 @@ export default function SprintPage() {
   }
 
   const generateAll = async () => {
-    for (const trendId of selectedTrends) {
+    const ids = Array.from(selectedTrends)
+    for (const trendId of ids) {
       await generateBrief(trendId)
     }
   }
