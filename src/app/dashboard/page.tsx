@@ -5,7 +5,7 @@ import { Platform, TrendStatus, Market, TrendCard as TrendCardType } from "@/lib
 import TrendFilters from "@/components/TrendFilters"
 import TrendCardComponent from "@/components/TrendCard"
 import TrendDetail from "@/components/TrendDetail"
-import { TrendingUp, Zap, Clock, BarChart3, Loader2, ArrowUpDown, Sparkles, FileText } from "lucide-react"
+import { TrendingUp, Zap, Clock, BarChart3, Loader2, ArrowUpDown, Sparkles, FileText, RefreshCw } from "lucide-react"
 
 type SortOption = "score" | "newest" | "window"
 
@@ -17,6 +17,8 @@ export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState<TrendStatus | "all">("all")
   const [filterMarket, setFilterMarket] = useState<Market | "all">("all")
   const [sortBy, setSortBy] = useState<SortOption>("score")
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
   const fetchTrends = useCallback(async () => {
     try {
@@ -28,10 +30,12 @@ export default function DashboardPage() {
       const res = await fetch(`/api/trends?${params.toString()}`)
       const data = await res.json()
       setTrends(data.trends || [])
+      setLastUpdate(new Date())
     } catch (err) {
       console.error("Failed to fetch trends:", err)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [filterPlatform, filterStatus, filterMarket])
 
@@ -96,14 +100,40 @@ export default function DashboardPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <TrendingUp className="w-6 h-6 text-rufus-purple" />
-          Feed de Tendencias
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Tendencias culturales detectadas — Argentina
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <TrendingUp className="w-6 h-6 text-rufus-purple" />
+            Feed de Tendencias
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Tendencias culturales detectadas — Argentina
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {lastUpdate && (
+            <span className="text-[11px] text-gray-600">
+              Última actualización: {lastUpdate.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          <button
+            onClick={async () => {
+              setRefreshing(true)
+              try {
+                await fetch("/api/cron/fetch-google-trends")
+                await fetchTrends()
+              } catch (err) {
+                console.error(err)
+                setRefreshing(false)
+              }
+            }}
+            disabled={refreshing}
+            className="p-1.5 rounded-lg hover:bg-rufus-card transition-colors text-gray-500 hover:text-rufus-purple-light disabled:opacity-50"
+            title="Buscar nuevas tendencias"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
