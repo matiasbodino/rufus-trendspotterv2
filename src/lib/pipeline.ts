@@ -1,4 +1,4 @@
-import { qualifySignal, generateTrendCard, QualifyResult } from "./claude"
+import { qualifySignal, generateTrendCard, matchClientFit, QualifyResult, ClientProfile } from "./claude"
 import { notifyTrendToClientChannels } from "./slack"
 import { TrendCard, Platform, Market, ActivationWindow, Durability, BriefFormat, ClientFit } from "./types"
 import { prisma } from "./prisma"
@@ -104,22 +104,46 @@ export async function processSignal(signal: RawSignal): Promise<TrendCard | null
     return null
   }
 
-  // Step 3: Suggest potential client fits (optional, just tags)
-  const potentialClients = (qualification as any).clientes_potenciales || []
-  const dbClients = potentialClients.length > 0
-    ? await prisma.client.findMany({
-        where: {
-          name: { in: potentialClients },
-          active: true,
-        },
-      })
-    : []
+  // Step 3: Match client fit using brand profiles
+  const allClients = await prisma.client.findMany({ where: { active: true } })
+  let clientFits: { clientId: string; fitLevel: string; fitReason: string }[] = []
 
-  const clients: ClientFit[] = dbClients.map((c) => ({
-    id: c.id,
-    name: c.name,
-    category: c.category,
-  }))
+  if (allClients.length > 0) {
+    try {
+      const profiles: ClientProfile[] = allClients.map((c) => ({
+        id: c.id,
+        name: c.name,
+        category: c.category,
+        audienceAge: c.audienceAge,
+        toneOfVoice: c.toneOfVoice,
+        brandTerritory: c.brandTerritory,
+        prohibitedTopics: c.prohibitedTopics,
+        activePlatforms: c.activePlatforms || [],
+        brandContext: c.brandContext,
+      }))
+
+      const fitResults = await matchClientFit(
+        { name: trendCardData.name, description: trendCardData.description, platform: signal.platform, tags: trendCardData.tags },
+        profiles
+      )
+
+      // Map Claude's response back to real client IDs
+      clientFits = fitResults
+        .map((fit) => {
+          const dbClient = allClients.find((c) => c.name.toLowerCase() === fit.clientName.toLowerCase() || c.id === fit.clientId)
+          if (!dbClient) return null
+          return { clientId: dbClient.id, fitLevel: fit.fitLevel, fitReason: fit.reason }
+        })
+        .filter(Boolean) as { clientId: string; fitLevel: string; fitReason: string }[]
+    } catch (err) {
+      console.error("Failed to match client fit:", err)
+    }
+  }
+
+  const clients: ClientFit[] = clientFits.map((f) => {
+    const c = allClients.find((cl) => cl.id === f.clientId)!
+    return { id: c.id, name: c.name, category: c.category, fitLevel: f.fitLevel as any, fitReason: f.fitReason }
+  })
 
   // Step 4: Save trend to DB
   let dbTrend
@@ -143,10 +167,13 @@ export async function processSignal(signal: RawSignal): Promise<TrendCard | null
         status: "NEW",
         market: signal.market,
         rawSignalId: rawSignal.id,
-        trendClients: dbClients.length > 0
+        trendClients: clientFits.length > 0
           ? {
-              create: dbClients.map((c) => ({
-                clientId: c.id,
+              create: clientFits.map((f) => ({
+                clientId: f.clientId,
+                fitLevel: f.fitLevel,
+                fitReason: f.fitReason,
+                addedBy: "claude",
               })),
             }
           : undefined,

@@ -9,15 +9,24 @@ datasource db {
 }
 
 model Client {
-  id             String        @id @default(uuid())
-  name           String
-  category       String
-  slackChannelId String?
-  figmaFileId    String?
-  market         String        @default("ARG")
-  active         Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id              String        @id @default(uuid())
+  name            String
+  category        String
+  slackChannelId  String?
+  figmaFileId     String?
+  market          String        @default("ARG")
+  active          Boolean       @default(true)
+  // Brand Profile
+  audienceAge     String?
+  audienceInterests String?     @db.Text
+  toneOfVoice     String?       @db.Text
+  brandTerritory  String?       @db.Text
+  prohibitedTopics String?      @db.Text
+  contentExamples String?       @db.Text
+  activePlatforms String[]      @default([])
+  brandContext    String?        @db.Text
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
   trendClients   TrendClient[]
   briefs         Brief[]
 }
@@ -69,11 +78,14 @@ model Trend {
 }
 
 model TrendClient {
-  id       String @id @default(uuid())
-  trendId  String
-  clientId String
-  trend    Trend  @relation(fields: [trendId], references: [id], onDelete: Cascade)
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  trendId   String
+  clientId  String
+  fitLevel  String  @default("MEDIUM")
+  fitReason String? @db.Text
+  addedBy   String  @default("claude")
+  trend     Trend   @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([trendId, clientId])
 }

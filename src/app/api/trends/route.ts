@@ -57,6 +57,8 @@ export async function GET(req: NextRequest) {
           id: tc.client.id,
           name: tc.client.name,
           category: tc.client.category,
+          fitLevel: (tc as any).fitLevel || "MEDIUM",
+          fitReason: (tc as any).fitReason || undefined,
         })
       ),
       createdAt: t.createdAt.toISOString(),

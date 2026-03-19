@@ -31,15 +31,93 @@ const anthropic = new Proxy({} as Anthropic, {
   },
 })
 
-const RUFUS_CLIENTS = `Clientes activos de Rufus Social:
-- MercadoLibre (ecommerce)
-- Danone (food & bev)
-- Disney (entretenimiento)
-- Rappi (delivery)
-- Despegar (travel)
-- PedidosYa (delivery)
-- CCU (food & bev)
-- NaranjaX (fintech)`
+export interface ClientProfile {
+  id: string
+  name: string
+  category: string
+  audienceAge?: string | null
+  toneOfVoice?: string | null
+  brandTerritory?: string | null
+  prohibitedTopics?: string | null
+  activePlatforms?: string[]
+  brandContext?: string | null
+}
+
+export interface ClientFitResult {
+  clientId: string
+  clientName: string
+  fitLevel: "HIGH" | "MEDIUM" | "LOW"
+  reason: string
+}
+
+function buildClientContext(clients: ClientProfile[]): string {
+  if (!clients || clients.length === 0) {
+    return "No hay clientes cargados con brand profiles."
+  }
+  return clients.map((c) => {
+    const parts = [`- ${c.name} (${c.category})`]
+    if (c.audienceAge) parts.push(`  Audiencia: ${c.audienceAge}`)
+    if (c.toneOfVoice) parts.push(`  Tono: ${c.toneOfVoice}`)
+    if (c.brandTerritory) parts.push(`  Territorio: ${c.brandTerritory}`)
+    if (c.prohibitedTopics) parts.push(`  Prohibido: ${c.prohibitedTopics}`)
+    if (c.activePlatforms?.length) parts.push(`  Plataformas: ${c.activePlatforms.join(", ")}`)
+    if (c.brandContext) parts.push(`  Contexto: ${c.brandContext}`)
+    return parts.join("\n")
+  }).join("\n\n")
+}
+
+export async function matchClientFit(
+  trend: { name: string; description: string; platform: string; tags?: string[] },
+  clients: ClientProfile[]
+): Promise<ClientFitResult[]> {
+  if (!clients || clients.length === 0) return []
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1024,
+    system: `Eres el motor de matching de tendencias de Rufus Social. Tu trabajo es evaluar qué clientes de la agencia tienen FIT con una tendencia cultural detectada.
+
+Evaluá cada cliente contra la tendencia considerando:
+1. ¿El tono de la tendencia encaja con el tono de la marca?
+2. ¿El territorio de la marca permite hablar de este tema?
+3. ¿La audiencia de la marca se interesaría en esta tendencia?
+4. ¿La plataforma donde se detectó es una donde el cliente está activo?
+5. ¿Hay algún tema prohibido que esta tendencia toque?
+
+Fit levels:
+- HIGH: encaja perfecto con el territorio, tono y audiencia de la marca
+- MEDIUM: podría funcionar con la adaptación correcta
+- LOW: no es el fit natural pero no es imposible
+
+Solo incluí clientes con fit MEDIUM o HIGH. Si un cliente tiene temas prohibidos que la tendencia toca, NO lo incluyas.`,
+    messages: [
+      {
+        role: "user",
+        content: `TENDENCIA:
+Nombre: ${trend.name}
+Descripción: ${trend.description}
+Plataforma: ${trend.platform}
+Tags: ${trend.tags?.join(", ") || "sin tags"}
+
+CLIENTES:
+${buildClientContext(clients)}
+
+Devolvé SOLO un JSON array sin markdown ni backticks:
+[{"clientId": "uuid", "clientName": "nombre", "fitLevel": "HIGH"|"MEDIUM"|"LOW", "reason": "por qué tiene fit en 1 oración"}]
+
+Si ningún cliente tiene fit, devolvé [].`,
+      },
+    ],
+  })
+
+  let text = response.content[0].type === "text" ? response.content[0].text : ""
+  text = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim()
+  try {
+    return JSON.parse(text) as ClientFitResult[]
+  } catch {
+    return []
+  }
+}
 
 export interface QualifyResult {
   califica: boolean
@@ -93,8 +171,6 @@ El score final = growthSpeed * 0.5 + culturalRelevance * 0.3 + ventanaScore * 0.
 Donde ventanaScore: URGENTE=10, NORMAL=6, PUEDE_ESPERAR=3
 
 IMPORTANTE: Sé generoso con la calificación. Si algo está trending y tiene potencial creativo, califica = true. El umbral es score >= 4. Solo rechazá cosas que son puro ruido sin ningún ángulo creativo posible.
-
-${RUFUS_CLIENTS}
 
 Devuelve SOLO un JSON válido sin markdown, sin backticks, sin explicación adicional.`,
     messages: [

@@ -36,10 +36,14 @@ export interface TrendCard {
   createdAt: string
 }
 
+export type FitLevel = "HIGH" | "MEDIUM" | "LOW"
+
 export interface ClientFit {
   id: string
   name: string
   category: string
+  fitLevel?: FitLevel
+  fitReason?: string
 }
 
 export interface Brief {

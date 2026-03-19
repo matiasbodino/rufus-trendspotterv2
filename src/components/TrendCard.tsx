@@ -142,16 +142,26 @@ export default function TrendCardComponent({ trend, onSelect }: TrendCardProps) 
         </div>
       </div>
 
-      {/* Format + tags */}
+      {/* Client fit chips */}
       <div className="flex flex-wrap items-center gap-1.5">
-        {trend.clients.map((c) => (
-          <span
-            key={c.id}
-            className="text-xs bg-rufus-purple/15 text-rufus-purple-light px-2 py-0.5 rounded-md"
-          >
-            {c.name}
-          </span>
-        ))}
+        {trend.clients.map((c) => {
+          const fitColors = {
+            HIGH: "bg-green-500/15 text-green-400 border-green-500/20",
+            MEDIUM: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
+            LOW: "bg-gray-500/15 text-gray-400 border-gray-500/20",
+          }
+          const fitEmoji = { HIGH: "🟢", MEDIUM: "🟡", LOW: "⚪" }
+          const level = (c.fitLevel || "MEDIUM") as keyof typeof fitColors
+          return (
+            <span
+              key={c.id}
+              className={`text-xs px-2 py-0.5 rounded-md border ${fitColors[level]}`}
+              title={c.fitReason || `${level} fit`}
+            >
+              {fitEmoji[level]} {c.name}
+            </span>
+          )
+        })}
         {trend.recommendedFormat && (
           <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded-md ml-auto">
             {FORMAT_LABELS[trend.recommendedFormat]}
