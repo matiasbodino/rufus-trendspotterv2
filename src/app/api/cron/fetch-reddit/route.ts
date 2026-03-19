@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 import { NextRequest, NextResponse } from "next/server"
 import { fetchRedditHot } from "@/lib/fetchers/reddit-public"
 import { processSignal } from "@/lib/pipeline"

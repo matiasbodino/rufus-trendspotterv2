@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 import { NextRequest, NextResponse } from "next/server"
 import { fetchPinterestTrends } from "@/lib/fetchers/pinterest"
 import { processSignal } from "@/lib/pipeline"

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 import { NextRequest, NextResponse } from "next/server"
 import { fetchTikTokTrendingScraper } from "@/lib/fetchers/tiktok-scraper"
 import { processSignal } from "@/lib/pipeline"
