@@ -207,70 +207,96 @@ export default function ClientsPage() {
             </div>
           </div>
 
-          <div className="mb-4">
-            <label className="text-xs text-gray-500 uppercase mb-1 block">Audiencia target (edad, intereses, NSE)</label>
+          {/* BRAND PROMPT — el campo principal */}
+          <div className="mb-6 p-4 bg-rufus-purple/5 border border-rufus-purple/20 rounded-xl">
+            <label className="text-sm font-medium text-rufus-purple-light mb-2 block flex items-center gap-2">
+              ⚡ Prompt de marca
+            </label>
+            <p className="text-[11px] text-gray-500 mb-3">
+              Escribí como si le estuvieras explicando la marca a un creativo nuevo. Claude usa esto como instrucción directa para evaluar fit de tendencias y generar briefs.
+            </p>
+            <textarea
+              value={form.brandContext}
+              onChange={(e) => setForm({ ...form, brandContext: e.target.value })}
+              rows={8}
+              className="w-full bg-rufus-bg border border-rufus-border rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-rufus-purple resize-none leading-relaxed"
+              placeholder={`Ej: Rappi es una app de delivery que se posiciona como el aliado del día a día. Su tono es irreverente, cercano y con humor — habla como un amigo, no como una marca. Usa lunfardo cuando aplica.
+
+Audiencia: 18-35, urbanos, nivel medio-alto. Les importa la conveniencia, el precio justo y la rapidez.
+
+Territorio: puede hablar de comida, delivery, cultura urbana, música, fútbol, momentos del día (almuerzo, cena, antojo nocturno). Le va el humor absurdo y los memes.
+
+NO puede hablar de: política, religión, competidores directos (PedidosYa), temas de salud sensibles.
+
+Lo que mejor funcionó: Reels con humor absurdo, UGC de creators reaccionando a situaciones de delivery, memes de "pidamos Rappi". Los formatos cortos (<15s) performan 3x mejor que los largos.
+
+Plataformas: TikTok (principal), IG Reels, X para real-time.`}
+            />
+          </div>
+
+          <details className="mb-4 group">
+            <summary className="text-xs text-gray-500 uppercase cursor-pointer hover:text-gray-300 transition-colors flex items-center gap-1">
+              <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+              Campos estructurados (opcional)
+            </summary>
+            <div className="mt-3 space-y-3 pl-1">
+
+          <div>
+            <label className="text-xs text-gray-500 uppercase mb-1 block">Audiencia target</label>
             <input
               value={form.audienceAge}
               onChange={(e) => setForm({ ...form, audienceAge: e.target.value })}
               className="w-full bg-rufus-bg border border-rufus-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-rufus-purple"
-              placeholder="Ej: 18-35, urbanos, nivel medio-alto, interesados en tecnología y delivery"
+              placeholder="Ej: 18-35, urbanos, nivel medio-alto"
             />
           </div>
 
-          <div className="mb-4">
+          <div>
             <label className="text-xs text-gray-500 uppercase mb-1 block">Tono de voz</label>
             <textarea
               value={form.toneOfVoice}
               onChange={(e) => setForm({ ...form, toneOfVoice: e.target.value })}
               rows={2}
               className="w-full bg-rufus-bg border border-rufus-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-rufus-purple resize-none"
-              placeholder="Ej: Irreverente, cercano, con humor. Habla como un amigo, no como una marca. Usa lunfardo cuando aplica."
+              placeholder="Ej: Irreverente, cercano, con humor."
             />
           </div>
 
-          <div className="mb-4">
-            <label className="text-xs text-gray-500 uppercase mb-1 block">Territorio de marca (de qué puede hablar)</label>
+          <div>
+            <label className="text-xs text-gray-500 uppercase mb-1 block">Territorio de marca</label>
             <textarea
               value={form.brandTerritory}
               onChange={(e) => setForm({ ...form, brandTerritory: e.target.value })}
               rows={2}
               className="w-full bg-rufus-bg border border-rufus-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-rufus-purple resize-none"
-              placeholder="Ej: Comida, delivery, cultura urbana, música, fútbol, momentos del día (almuerzo, cena, antojo)"
+              placeholder="Ej: Comida, delivery, cultura urbana, música, fútbol"
             />
           </div>
 
-          <div className="mb-4">
-            <label className="text-xs text-gray-500 uppercase mb-1 block">Temas prohibidos (de qué NO puede hablar)</label>
+          <div>
+            <label className="text-xs text-gray-500 uppercase mb-1 block">Temas prohibidos</label>
             <textarea
               value={form.prohibitedTopics}
               onChange={(e) => setForm({ ...form, prohibitedTopics: e.target.value })}
               rows={2}
               className="w-full bg-rufus-bg border border-rufus-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-rufus-purple resize-none"
-              placeholder="Ej: Política, religión, violencia, competidores directos, temas sensibles de salud"
+              placeholder="Ej: Política, religión, competidores directos"
             />
           </div>
 
-          <div className="mb-4">
-            <label className="text-xs text-gray-500 uppercase mb-1 block">Ejemplos de contenido que funcionó</label>
+          <div>
+            <label className="text-xs text-gray-500 uppercase mb-1 block">Contenido que funcionó</label>
             <textarea
               value={form.contentExamples}
               onChange={(e) => setForm({ ...form, contentExamples: e.target.value })}
               rows={2}
               className="w-full bg-rufus-bg border border-rufus-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-rufus-purple resize-none"
-              placeholder="Ej: Reels con humor absurdo, UGC de creators reaccionando, memes de situaciones cotidianas"
+              placeholder="Ej: Reels con humor absurdo, UGC de creators"
             />
           </div>
 
-          <div className="mb-4">
-            <label className="text-xs text-gray-500 uppercase mb-1 block">Contexto adicional de la marca</label>
-            <textarea
-              value={form.brandContext}
-              onChange={(e) => setForm({ ...form, brandContext: e.target.value })}
-              rows={3}
-              className="w-full bg-rufus-bg border border-rufus-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-rufus-purple resize-none"
-              placeholder="Cualquier info adicional que ayude a Claude a entender la marca. Estrategia actual, momento de la marca, objetivos, etc."
-            />
-          </div>
+            </div>{/* end space-y-3 */}
+          </details>
 
           <div className="mb-6">
             <label className="text-xs text-gray-500 uppercase mb-2 block">Plataformas activas</label>
